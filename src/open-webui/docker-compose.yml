@@ -1,3 +1,4 @@
+
 services:
   ollama:
     image: ollama/ollama:0.13.0
@@ -23,7 +24,8 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all  # Acesso a todas as GPUs
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility  # Capacidades necessárias
       - OLLAMA_BASE_URL=http://ollama:11434
-      - WEBUI_SECRET_KEY=
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - TERMINAL_API_KEY=${TERMINAL_API_KEY} 
     depends_on:
       - ollama
     ports:
