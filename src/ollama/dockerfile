@@ -1,0 +1,14 @@
+# ------------------------------
+# Dockerfile para executar Ollama
+# ------------------------------
+
+FROM ollama/ollama:latest
+
+# Cria diretório para os modelos persistentes
+RUN mkdir -p /root/.ollama
+
+# Porta usada pela API do Ollama
+EXPOSE 11434
+
+# Inicia o servidor automaticamente
+CMD ["serve"]
