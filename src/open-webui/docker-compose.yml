@@ -1,26 +1,44 @@
 services:
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.13.0
     container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_models:/root/.ollama
+    pull_policy: always
+    tty: true
     restart: unless-stopped
-  openwebui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: openwebui
-    ports:
-      - "3000:8080"
-    volumes:
-      - open-webui:/app/backend/data
+    runtime: nvidia
     environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - ollama-network
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:cuda  # Imagem com suporte CUDA
+    container_name: open-webui
+    restart: unless-stopped
+    runtime: nvidia  # Adicionado runtime NVIDIA
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all  # Acesso a todas as GPUs
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility  # Capacidades necessárias
       - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_SECRET_KEY=
     depends_on:
       - ollama
-    restart: unless-stopped
-  # acesso via http://localhost:3000
+    ports:
+      - ${OPEN_WEBUI_PORT-3000}:8080
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - open-webui:/app/backend/data
+    networks:
+      - ollama-network
 
 volumes:
-  ollama_models:
+  ollama:
   open-webui:
+
+networks:
+  ollama-network:
+    driver: bridge
