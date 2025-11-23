@@ -3,6 +3,12 @@ from pydantic import BaseModel
 import subprocess
 import shlex
 import os
+import uvicorn
+from dotenv import load_dotenv
+
+
+# 🔧 Carrega variáveis do .env (se existir)
+load_dotenv()
 
 # 🔧 Ambiente: dev (default) ou prod
 ENVIRONMENT = os.getenv("APP_ENV", "dev")
@@ -15,6 +21,11 @@ if API_KEY is None:
         "Defina TERMINAL_API_KEY antes de subir a API."
     )
 
+PORT = int(os.getenv("TERMINAL_PORT", "8000"))
+HOST = os.getenv("TERMINAL_HOST", "0.0.0.0")
+# 🔐 Senha sudo (opcional, apenas para ambiente local controlado)
+SUDO_PASSWORD = os.getenv("SUDO_PASSWORD")
+
 # Lista de binários permitidos (apenas para ambiente dev)
 ALLOWED_BINARIES = [
     "ls", "pwd", "whoami", "id", "cat", "grep", "find",
@@ -26,6 +37,7 @@ ALLOWED_BINARIES = [
 class CommandRequest(BaseModel):
     binary: str          # ex: "ls"
     args: list[str] = []  # ex: ["-la", "/"]
+    timeout: int = 300  # timeout padrão de 5 minutos
 
 
 class CommandResponse(BaseModel):
@@ -68,7 +80,7 @@ def run_command(
 
     # ✅ Política de comandos
     allowed = is_binary_allowed(req.binary)
-    print(f"🔐 Comando permitido? {allowed}")
+    # print(f"🔐 Comando permitido? {allowed}")
 
     if not allowed:
         print(f"🚫 Comando BLOQUEADO: {req.binary}")
@@ -79,18 +91,41 @@ def run_command(
 
     # Monta a lista final
     cmd_list = [req.binary] + (req.args or [])
-    print(f"🔧 Comando completo: {cmd_list}")
+    # print(f"🔧 Comando completo: {cmd_list}")
 
     try:
-        result = subprocess.run(
-            cmd_list,
-            shell=False,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        if req.binary == "sudo":
+            # Verifica se a senha está configurada
+            if SUDO_PASSWORD is None:
+                raise HTTPException(
+                    status_code=500,
+                    detail="SUDO_PASSWORD não configurada no ambiente."
+                )
 
-        print(f"✅ Executado! Return code: {result.returncode}")
+            # Monta comando: sudo -S + args completos
+            cmd_list = ["sudo", "-S"] + req.args
+
+            result = subprocess.run(
+                cmd_list,
+                shell=False,
+                capture_output=True,
+                text=True,
+                input=f"{SUDO_PASSWORD}\n",  # Senha via stdin
+                timeout=req.timeout
+            )
+        else:
+            # Comando normal (não-sudo)
+            cmd_list = [req.binary] + req.args
+
+            result = subprocess.run(
+                cmd_list,
+                shell=False,
+                capture_output=True,
+                text=True,
+                timeout=req.timeout
+            )
+
+        # print(f"✅ Executado! Return code: {result.returncode}")
         print(f"📤 STDOUT (primeiros 200 chars): {result.stdout[:200]}")
         print(f"📤 STDERR (primeiros 200 chars): {result.stderr[:200]}")
 
@@ -115,6 +150,22 @@ def run_command(
     )
 
 
-# if __name__ == "__main__":
-#     req = CommandRequest(binary="ls", args=["-a"])
-#     run_command(req)
+if __name__ == "__main__":
+    print(f"""
+╔══════════════════════════════════════════════════════════╗
+║   🔒 Secure Terminal Server                             ║
+╠══════════════════════════════════════════════════════════╣
+║   Port: {PORT}                                              ║
+║   Host: {HOST}                                         ║
+║   API Key: {'✓ Configured' if API_KEY else '✗ Missing'}                                    ║
+╚══════════════════════════════════════════════════════════╝
+
+Server starting...
+    """)
+
+    uvicorn.run(
+        app,
+        host=HOST,
+        port=PORT,
+        log_level="info"
+    )
