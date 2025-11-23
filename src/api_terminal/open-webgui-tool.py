@@ -3,13 +3,14 @@ title: Terminal Executor Tool
 author: open-webui
 author_url: https://github.com/open-webui
 funding_url: https://github.com/open-webui
-version: 1.0.1
+version: 1.0.2
 """
 
 from typing import Callable, Any
 import requests
 import json
 import asyncio
+import shlex
 
 
 class Tools:
@@ -38,7 +39,7 @@ class Tools:
         args: list[str] = None,
         timeout: int = None,
         __user__: dict = None,
-        __event_emitter__: Callable[[dict], Any] = None,
+        __event_emitter__: Callable[[dict], Any] = None
     ) -> str:
         """
         Executa um comando no terminal através da API local.
@@ -59,6 +60,12 @@ class Tools:
         if timeout is None:
             timeout = self.valves.TIMEOUT
 
+        # 🔧 FIX: Se o binary contém espaços, parsear como comando completo
+        if " " in binary:
+            parsed = shlex.split(binary)
+            binary = parsed[0]
+            args = parsed[1:] + args
+
         # Emite evento de status inicial
         if __event_emitter__:
             await __event_emitter__(
@@ -66,21 +73,25 @@ class Tools:
                     "type": "status",
                     "data": {
                         "description": f"Executando comando: {binary} {' '.join(args)}",
-                        "done": False,
-                    },
+                        "done": False
+                    }
                 }
             )
 
         try:
             # Monta o payload
-            payload = {"binary": binary, "args": args, "timeout": timeout}
+            payload = {
+                "binary": binary,
+                "args": args,
+                "timeout": timeout
+            }
 
-            # Realiza a chamada à API (requests é síncrono, mas rápido o suficiente)
+            # Realiza a chamada à API
             response = requests.post(
                 f"{self.valves.API_BASE_URL}/run",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=timeout + 5,
+                timeout=timeout + 5
             )
 
             # Valida resposta
@@ -97,10 +108,10 @@ class Tools:
 
             # Trunca output se necessário
             if len(stdout) > self.valves.MAX_OUTPUT_LENGTH:
-                stdout = stdout[: self.valves.MAX_OUTPUT_LENGTH] + \
+                stdout = stdout[:self.valves.MAX_OUTPUT_LENGTH] + \
                     "\n... (truncado)"
             if len(stderr) > self.valves.MAX_OUTPUT_LENGTH:
-                stderr = stderr[: self.valves.MAX_OUTPUT_LENGTH] + \
+                stderr = stderr[:self.valves.MAX_OUTPUT_LENGTH] + \
                     "\n... (truncado)"
 
             # Monta resposta formatada
@@ -125,8 +136,8 @@ class Tools:
                         "type": "status",
                         "data": {
                             "description": f"Comando executado com sucesso (rc={returncode})",
-                            "done": True,
-                        },
+                            "done": True
+                        }
                     }
                 )
 
@@ -140,8 +151,8 @@ class Tools:
                         "type": "status",
                         "data": {
                             "description": "Timeout na execução do comando",
-                            "done": True,
-                        },
+                            "done": True
+                        }
                     }
                 )
             return error_msg
@@ -152,7 +163,10 @@ class Tools:
                 await __event_emitter__(
                     {
                         "type": "status",
-                        "data": {"description": f"Erro: {str(e)}", "done": True},
+                        "data": {
+                            "description": f"Erro: {str(e)}",
+                            "done": True
+                        }
                     }
                 )
             return error_msg
@@ -165,8 +179,8 @@ class Tools:
                         "type": "status",
                         "data": {
                             "description": f"Erro crítico: {str(e)}",
-                            "done": True,
-                        },
+                            "done": True
+                        }
                     }
                 )
             return error_msg
