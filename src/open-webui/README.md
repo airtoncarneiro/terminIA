@@ -1,6 +1,6 @@
 webui empacotado com ollama: docker run -d -p 3000:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
 
-
+http://localhost:3000/
 ----
 
 para subir o serviço na pasta onde está o arquivo:
