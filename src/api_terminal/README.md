@@ -28,6 +28,12 @@ uvicorn terminal_api:app --host 0.0.0.0 --port 8000
 ## Expôr a porta via NGROK:
 ngrok http 8000
 
+ou, se tiver usando a opção de domínio do ngrok:
+ngrok http 8000 --url=<YOUR_STATIC_DOMAIN>
+
+exemplo real do meu domínio:
+ngrok http 8000 --url=worthy-humble-monitor.ngrok-free.app
+
 curl -X POST https://8508a903fd1f.ngrok-free.app/run \
   -H "Content-Type: application/json" \
   -H "X-API-Key: uma-chave-bem-grande-e-secreta" \
